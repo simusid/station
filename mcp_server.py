@@ -1,35 +1,67 @@
 from mcp.server import FastMCP
 from typing import List, Dict, Any
- 
+import sys
 import json
-TRUCKS = "trucks.json"
-ROSTER = "roster.json"
-SHIFT = "shift.json"
+STATE="state.json"
+TASKS="tasks.json"
+EMPLOYEES="employees.json"
 
 mcp = FastMCP("app")
 
 @mcp.tool()
-def get_truck_status() -> List[Dict[str, Any]]:
-	"""Return the status of all ambulances. """
-	with open(TRUCKS) as fh:
-		trucks = fh.read()
-	return trucks
+def get_operational_status() -> str:
+	"""Return the full operational status of every unit.  This includes the current
+	 up to date crew staffing of the ambulances, the location of the ambulances, 
+	 their availability marked with the date and time.   """
+	with open(STATE) as fh:
+		state = fh.read()
+	return state
 
 @mcp.tool()
-def set_truck_status(trucks: List[Dict[str,Any]])-> bool:
-	"""Set the status of all the trucks (ambulances)"""
-	with open(TRUCKS,"w") as fh:
-		fh.write(json.dumps(trucks))
+def save_operational_state(**state)-> bool:
+	"""Save the full operational status of every unit.  This includes the current
+	 up to date crew staffing of the ambulances, the location of the ambulances, 
+	 their availability marked with the date and time.  """
+	with open(STATE,"w") as fh:
+		fh.write(json.dumps(state))
+		 
 	return True
 
 @mcp.tool()
-def get_roster() -> List[Dict[str, Any]]:
-	"""Returns the full roster of employees, their contact info and their EMS certification"""
-	with open(ROSTER) as fh:
+def get_tasks():
+	"""A task is anything we should keep track of until it is resolved.  Examples are
+	future license renewals, truck annual inspections, crew reports about problems or
+	issues, reminders about future events, or even just notes like 'we should schedule
+	a meeting with the police and fire chiefs at some point' """
+	with open(TASKS) as fh:
+		return fh.read()
+
+@mcp.tool()
+def save_tasks(**tasks)->bool:
+	"""Save the state of all tasks, reminders, notices, notes, and events"""
+	with open(TASKS,"w") as fh:
+		fh.write(json.dumps(tasks))
+	return True
+
+@mcp.tool()
+def get_all_employees():
+	"""Return a list of all current employees, their certifcation (EMT Basic or Medic)
+	and optional email address"""
+	with open (EMPLOYEES) as fh:
 		return fh.read()
 	
 @mcp.tool()
-def get_dispatch_rules()->str:
+def set_all_employees(**employees):
+	"""Save a list of all current employees, with their certification (EMT Basic 
+	or Medic) and optional email address"""
+	with open(EMPLOYEES,"w") as fh:
+		fh.write(json.dumps(employees))
+	return True
+
+
+@mcp.tool()
+def get_station_rules()->str:
+
 	rules="""You must always know the status of all your ambulances. 
 	You cannot dispatch an ambulance if it is on a call.
 	You cannot dispatch an ambulance if it is out of service.
@@ -42,17 +74,18 @@ def get_dispatch_rules()->str:
 	stroke-like symptoms, significant trauma, and altered mental status.
 	If an ALS response is required but only a BLS unit is available.   Send the BLS unit
 	while simultaneously requesting mutual aid.
+	You should occasionally review all reminders and report which items need attention.
 	"""
 	return rules
 
-@mcp.tool()
-def get_shift_assignments():
-	pass
+@mcp.resource("config://contacts", description="A list of important contacts at the Station")
+def get_station_contacts():
+	return [{"role":"medical director", "name":"Dr. Randy Kaplin"},
+		 {"role":"executive director", "name":"Mark McGraw"},
+		 {"role":"operations manager", "name":"Joe Amaral"}]
 
-
+ 
 # run the server
 if __name__ == "__main__":
-	trucks =[{"name":"A1", "status": "in station"},{ "name":"A2","status":"on a call"}]
-	with open(TRUCKS,"w") as fh:
-		fh.write(json.dumps(trucks))
+	print('starting server\n', file=sys.stderr)
 	mcp.run()

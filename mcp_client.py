@@ -17,6 +17,11 @@ try:
     base_url= os.environ['base_url']
 except:
     pass
+
+#api_key="foo"
+#base_url = "http://localhost:8080/v1"
+base_url=None  # use openai if None
+
 class MCPLLMIntegration:
     def __init__(self, base_url=None):
         # Initialize OpenAI client for llama.cpp server
@@ -26,9 +31,12 @@ class MCPLLMIntegration:
         
     async def connect_mcp(self):
         """Connect to MCP server and get available tools"""
+
+        """Adjust these launch parameters as needed to ensure a valid
+        python environment (e.g. paths and permissions)"""
         server_params = StdioServerParameters(
-            command="python",
-            args=["mcp_server.py"]
+            command="zsh",
+            args=["/Users/gary/Desktop/station/start_mcp_server.sh"]
         )
         
         print("Connecting to MCP server...")
@@ -40,10 +48,9 @@ class MCPLLMIntegration:
         # Initialize and get tools
         await self.mcp_session.initialize()
         tools_response = await self.mcp_session.list_tools()
-        prompts_response = await self.mcp_session.list_prompts()
-        print(prompts_response)
-        self.available_tools = tools_response.tools
-        print(f"Connected! Available MCP tools: {[tool.name for tool in self.available_tools]}")
+         
+        self.available_tools = tools_response.tools  
+        print(f"\n\nConnected! Available MCP tools: {[tool.name for tool in self.available_tools]}","\n\n")
         
     async def disconnect_mcp(self):
         """Clean up MCP connection"""
@@ -97,6 +104,7 @@ class MCPLLMIntegration:
     
     async def chat_with_tools(self, user_message, conversation_history=None):
         """Chat with LLM that can call MCP tools"""
+
         if conversation_history is None:
             conversation_history = []
         
@@ -151,7 +159,7 @@ class MCPLLMIntegration:
                 return assistant_message.content, messages
 
 async def main():
-    integration = MCPLLMIntegration()
+    integration = MCPLLMIntegration(base_url=base_url)
     
     try:
         # Connect to MCP server
@@ -159,8 +167,21 @@ async def main():
         
         print("\n=== MCP + LLM Integration Ready ===")
         print("Type 'quit' to exit\n")
-        
-        conversation_history = []
+        contacts = await integration.mcp_session.read_resource("config://contacts")
+
+        system=f"""You are Station.  You manage the state of an organization.  The state 
+        consists of a set of objects, the attributes of those objects, and  the interrelationships 
+         between two or more objects.  
+          
+        You may be asked a question about an object, relationship, or state that you know
+         nothing about.  In that case you are to respond by asking for more information.
+          
+        You are required to save the entire state whenever any object, attribute or relationship
+        changes. 
+        contact information is:
+        {contacts}
+        """
+        conversation_history = [{"role":"system", "content":system}]
         
         while True:
             user_input = input("You: ").strip()
@@ -187,5 +208,5 @@ async def main():
 if __name__ == "__main__":
     # Make sure you have llama.cpp server running with:
     # ./server -m your-model.gguf --port 8080
-    print("Make sure llama.cpp server is running on http://localhost:8080")
+ 
     asyncio.run(main())

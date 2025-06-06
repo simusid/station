@@ -1,6 +1,14 @@
 # Station
 Station is an AI that will assist with the operations of an organization.   It will have a corpus of information, foundational, historical, current.    It will know what is important in the context of "today".
 
+## Motivation
+The motivation for this app is to fix operational communication of little things so they don't 
+become big things.   
+
+Passdown logs
+
+
+
 # Components
 
 ## History/purpose/mission information

@@ -4,23 +4,36 @@ import json
 import sys
 from openai import OpenAI
 import os
+import subprocess
 from dotenv import load_dotenv
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+import record 
+from record import *
+from pynput import keyboard
+from elevenlabs import ElevenLabs, play
 
+MODEL = "gpt-4.1"
+ 
 rc = load_dotenv()
 if(rc==False):
     print("LLM api keys not found... exiting")
     exit()
 try:       
     api_key = os.environ['api_key']
+    eleven_labs_key = os.environ['eleven_labs_key']
     base_url= os.environ['base_url']
+    
 except:
     pass
 
 #api_key="foo"
 #base_url = "http://localhost:8080/v1"
 base_url=None  # use openai if None
+
+client = ElevenLabs(api_key=eleven_labs_key)
+#"pNInz6obpgDQGcFmaJgB"
+VOICE_ID ="onwK4e9ZLuTAKqWW03F9" # Bill
 
 class MCPLLMIntegration:
     def __init__(self, base_url=None):
@@ -119,7 +132,7 @@ class MCPLLMIntegration:
         while True:
             # Call LLM
             response = self.llm_client.chat.completions.create(
-                model="gpt-4.1",  # This is ignored by llama.cpp but required
+                model=MODEL,  # This is ignored by llama.cpp but required
                 messages=messages,
                 tools=tools if tools else None,
                 tool_choice="auto" if tools else None
@@ -168,23 +181,33 @@ async def main():
         print("\n=== MCP + LLM Integration Ready ===")
         print("Type 'quit' to exit\n")
         contacts = await integration.mcp_session.read_resource("config://contacts")
-
+         
         system=f"""You are Station.  You manage the state of an organization.  The state 
         consists of a set of objects, the attributes of those objects, and  the interrelationships 
          between two or more objects.  
           
-        You may be asked a question about an object, relationship, or state that you know
-         nothing about.  In that case you are to respond by asking for more information.
-          
+        Be as brief as possible in your answers.
+        
         You are required to save the entire state whenever any object, attribute or relationship
         changes. 
+
         contact information is:
         {contacts}
         """
         conversation_history = [{"role":"system", "content":system}]
         
         while True:
-            user_input = input("You: ").strip()
+            ## voice input goes here
+            ## 
+            print("Hold SPACE to record, release to stop.  Esc quits.")
+            with keyboard.Listener(on_press=record._on_press,
+                           on_release=record._on_release) as listener:
+                listener.join()
+            # when we reach here the the voice to text string 
+            # will be in this variable
+
+            #user_input = input("You: ").strip()  # this is the original text input
+            user_input = record.global_text       # this is the TTS input from record.*
             if user_input.lower() in ['quit', 'exit']:
                 break
                 
@@ -194,6 +217,7 @@ async def main():
                 conversation_history
             )
             print(response)
+            say_text(response)
             print()
             
     except KeyboardInterrupt:
@@ -204,6 +228,14 @@ async def main():
         traceback.print_exc()
     finally:
         await integration.disconnect_mcp()
+
+def say_text(text):
+    # use elevenlabs
+    audio = client.text_to_speech.convert(text=text, voice_id=VOICE_ID)
+    play(audio)
+    # use native mac
+    #subprocess.run(["say", "-v", "daniel", text])
+
 
 if __name__ == "__main__":
     # Make sure you have llama.cpp server running with:

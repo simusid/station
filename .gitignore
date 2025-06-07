@@ -1,2 +1,5 @@
 .env
-
+*.wav
+*.log
+*.jpg
+*.png

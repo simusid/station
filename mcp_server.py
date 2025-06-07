@@ -80,9 +80,8 @@ def get_station_rules()->str:
 
 @mcp.resource("config://contacts", description="A list of important contacts at the Station")
 def get_station_contacts():
-	return [{"role":"medical director", "name":"Dr. Randy Kaplin"},
-		 {"role":"executive director", "name":"Mark McGraw"},
-		 {"role":"operations manager", "name":"Joe Amaral"}]
+	with open("contacts.json") as fh:
+		return fh.read()
 
  
 # run the server

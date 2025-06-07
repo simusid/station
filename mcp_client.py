@@ -12,7 +12,20 @@ import record
 from record import *
 from pynput import keyboard
 from elevenlabs import ElevenLabs, play
+from argparse import ArgumentParser
+import logging
 
+
+parser = ArgumentParser(description="This is Station.  Station helps you manage the operations of an ambulance system")
+parser.add_argument("--use_voice", type=bool, default=False, help="Use voice for input and output" )
+parser.add_argument("--use_elevenlabs", type=bool, default=False, help="Use high quality elevenlabs speech output (must use_voice)")
+ 
+parser.add_argument("--user", default="Station")
+args = parser.parse_args()
+use_voice = args.use_voice  # voice input and output
+use_elevenlabs=args.use_elevenlabs 
+user= args.user
+ 
 MODEL = "gpt-4.1"
  
 rc = load_dotenv()
@@ -32,9 +45,13 @@ except:
 base_url=None  # use openai if None
 
 client = ElevenLabs(api_key=eleven_labs_key)
-#"pNInz6obpgDQGcFmaJgB"
+#"pNInz6obpgDQGcFmaJgB"  # default
 VOICE_ID ="onwK4e9ZLuTAKqWW03F9" # Bill
 
+ 
+print("Initialization complete")
+
+##################  Init complete
 class MCPLLMIntegration:
     def __init__(self, base_url=None):
         # Initialize OpenAI client for llama.cpp server
@@ -132,7 +149,7 @@ class MCPLLMIntegration:
         while True:
             # Call LLM
             response = self.llm_client.chat.completions.create(
-                model=MODEL,  # This is ignored by llama.cpp but required
+                model=MODEL,  # This is ignored by local llama.cpp but required
                 messages=messages,
                 tools=tools if tools else None,
                 tool_choice="auto" if tools else None
@@ -187,7 +204,7 @@ async def main():
          between two or more objects.  
           
         Be as brief as possible in your answers.
-        
+
         You are required to save the entire state whenever any object, attribute or relationship
         changes. 
 
@@ -197,17 +214,17 @@ async def main():
         conversation_history = [{"role":"system", "content":system}]
         
         while True:
-            ## voice input goes here
-            ## 
-            print("Hold SPACE to record, release to stop.  Esc quits.")
-            with keyboard.Listener(on_press=record._on_press,
-                           on_release=record._on_release) as listener:
-                listener.join()
-            # when we reach here the the voice to text string 
-            # will be in this variable
-
-            #user_input = input("You: ").strip()  # this is the original text input
-            user_input = record.global_text       # this is the TTS input from record.*
+            if(use_voice==True):
+                print("Hold SPACE to record, release to stop.  Esc quits.")
+                with keyboard.Listener(on_press=record._on_press,
+                            on_release=record._on_release) as listener:
+                    listener.join()
+                # when we reach here the the voice to text string 
+                # will be in this variable
+                user_input = record.global_text       # this is the TTS input from record.*
+            else:
+                user_input = input("You: ").strip()  # this is the original text input
+            
             if user_input.lower() in ['quit', 'exit']:
                 break
                 
@@ -216,9 +233,10 @@ async def main():
                 user_input, 
                 conversation_history
             )
-            print(response)
-            say_text(response)
-            print()
+            print(response)  # the actual output from the LLM
+            if(use_voice==True):
+                say_text(response, use_elevenlabs)
+             
             
     except KeyboardInterrupt:
         print("\nShutting down...")
@@ -229,13 +247,13 @@ async def main():
     finally:
         await integration.disconnect_mcp()
 
-def say_text(text):
-    # use elevenlabs
-    audio = client.text_to_speech.convert(text=text, voice_id=VOICE_ID)
-    play(audio)
-    # use native mac
-    #subprocess.run(["say", "-v", "daniel", text])
-
+def say_text(text, useelevenlabs=False):
+    if(useelevenlabs):
+        audio = client.text_to_speech.convert(text=text, voice_id=VOICE_ID)
+        play(audio)
+    else:
+        # use native mac
+        subprocess.run(["say", "-v", "daniel", text])
 
 if __name__ == "__main__":
     # Make sure you have llama.cpp server running with:
